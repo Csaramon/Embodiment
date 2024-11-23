@@ -89,7 +89,7 @@
 
     <div id="main-page">
         <h1>Emotion Painting</h1>
-        <p>Use your mouse to paint over the image to express your emotions.</p>
+        <p>Use your mouse or touch to paint over the image to express your emotions.</p>
         <div id="controls">
             <button id="eraser-btn">Eraser</button>
             <label for="pen-size">Pen Size:</label>
@@ -147,6 +147,7 @@
 
         function initializeCanvas() {
             const backgroundImage = new Image();
+            backgroundImage.crossOrigin = 'anonymous';
             backgroundImage.src = 'Resource/background.png'; // Ensure this image exists in the Resource folder
             backgroundImage.onload = () => {
                 // Set canvas sizes
@@ -154,6 +155,10 @@
                 backgroundCanvas.height = backgroundImage.height;
                 drawingCanvas.width = backgroundImage.width;
                 drawingCanvas.height = backgroundImage.height;
+
+                // Set container size
+                canvasContainer.style.width = backgroundImage.width + 'px';
+                canvasContainer.style.height = backgroundImage.height + 'px';
 
                 // Draw background image
                 const bgCtx = backgroundCanvas.getContext('2d');
@@ -169,15 +174,32 @@
                 let drawing = false;
                 let erasing = false; // State to track eraser mode
 
+                // Helper function to get mouse or touch position
+                function getPosition(event) {
+                    let x, y;
+                    if (event.touches && event.touches.length > 0) {
+                        const rect = drawingCanvas.getBoundingClientRect();
+                        x = event.touches[0].clientX - rect.left;
+                        y = event.touches[0].clientY - rect.top;
+                    } else {
+                        x = event.offsetX;
+                        y = event.offsetY;
+                    }
+                    return { x, y };
+                }
+
+                // Mouse events
                 drawingCanvas.addEventListener('mousedown', (e) => {
                     drawing = true;
+                    const pos = getPosition(e);
                     drawCtx.beginPath();
-                    drawCtx.moveTo(e.offsetX, e.offsetY);
+                    drawCtx.moveTo(pos.x, pos.y);
                 });
 
                 drawingCanvas.addEventListener('mousemove', (e) => {
                     if (drawing) {
-                        drawCtx.lineTo(e.offsetX, e.offsetY);
+                        const pos = getPosition(e);
+                        drawCtx.lineTo(pos.x, pos.y);
                         drawCtx.stroke();
                     }
                 });
@@ -187,6 +209,34 @@
                 });
 
                 drawingCanvas.addEventListener('mouseout', () => {
+                    drawing = false;
+                });
+
+                // Touch events
+                drawingCanvas.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    drawing = true;
+                    const pos = getPosition(e);
+                    drawCtx.beginPath();
+                    drawCtx.moveTo(pos.x, pos.y);
+                });
+
+                drawingCanvas.addEventListener('touchmove', (e) => {
+                    e.preventDefault();
+                    if (drawing) {
+                        const pos = getPosition(e);
+                        drawCtx.lineTo(pos.x, pos.y);
+                        drawCtx.stroke();
+                    }
+                });
+
+                drawingCanvas.addEventListener('touchend', (e) => {
+                    e.preventDefault();
+                    drawing = false;
+                });
+
+                drawingCanvas.addEventListener('touchcancel', (e) => {
+                    e.preventDefault();
                     drawing = false;
                 });
 
@@ -203,43 +253,42 @@
                     erasing = !erasing;
                     if (erasing) {
                         eraserBtn.textContent = 'Pen';
-                        drawCtx.globalCompositeOperation = 'destination-out'; // Eraser mode
-                        drawCtx.strokeStyle = 'rgba(0,0,0,1)'; // Color doesn't matter in erase mode
+                        drawCtx.globalCompositeOperation = 'destination-out'; // Erase mode
+                        drawCtx.strokeStyle = 'rgba(0,0,0,1)';
                     } else {
                         eraserBtn.textContent = 'Eraser';
-                        drawCtx.globalCompositeOperation = 'source-over'; // Pen mode
+                        drawCtx.globalCompositeOperation = 'source-over'; // Draw mode
                         drawCtx.strokeStyle = 'gray';
                     }
                 });
             };
         }
 
-saveBtn.addEventListener('click', () => {
-    // Merge background and drawing canvases
-    const mergedCanvas = document.createElement('canvas');
-    mergedCanvas.width = backgroundCanvas.width;
-    mergedCanvas.height = backgroundCanvas.height;
-    const mergedCtx = mergedCanvas.getContext('2d');
+        // Save the painting locally
+        saveBtn.addEventListener('click', () => {
+            // Merge background and drawing canvases
+            const mergedCanvas = document.createElement('canvas');
+            mergedCanvas.width = backgroundCanvas.width;
+            mergedCanvas.height = backgroundCanvas.height;
+            const mergedCtx = mergedCanvas.getContext('2d');
 
-    mergedCtx.drawImage(backgroundCanvas, 0, 0);
-    mergedCtx.drawImage(drawingCanvas, 0, 0);
+            mergedCtx.drawImage(backgroundCanvas, 0, 0);
+            mergedCtx.drawImage(drawingCanvas, 0, 0);
 
-    // Convert canvas to data URL
-    const dataURL = mergedCanvas.toDataURL('image/png');
+            // Convert canvas to data URL
+            const dataURL = mergedCanvas.toDataURL('image/png');
 
-    // Trigger download
-    const link = document.createElement('a');
-    link.href = dataURL;
-    link.download = `${userName}_${userGender}_${userAge}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+            // Trigger download
+            const link = document.createElement('a');
+            link.href = dataURL;
+            link.download = `${userName}_${userGender}_${userAge}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
 
-    alert('Your painting has been downloaded.');
-});
-
+            alert('Your painting has been downloaded.');
+        });
     </script>
 
 </body>
 </html>
-
