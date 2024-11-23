@@ -7,17 +7,20 @@
         body {
             font-family: Arial, sans-serif;
             margin: 0;
-            padding: 0;
+            padding: 20px;
         }
         #welcome-page, #main-page {
             display: none;
-            padding: 20px;
         }
         #welcome-page.active, #main-page.active {
             display: block;
         }
         .consent-item {
             margin-bottom: 10px;
+        }
+        #proceed-btn {
+            font-size: 1.2em;
+            padding: 10px 20px;
         }
         #proceed-btn:disabled {
             background-color: #ccc;
@@ -35,11 +38,14 @@
         #controls {
             margin-top: 20px;
         }
-        #controls button, #controls input {
+        #controls button, #controls input, #controls select {
             margin-right: 10px;
         }
         #pen-size {
             width: 50px;
+        }
+        #save-btn {
+            margin-top: 20px;
         }
     </style>
 </head>
@@ -89,17 +95,22 @@
 
     <div id="main-page">
         <h1>Emotion Painting</h1>
-        <p>Use your mouse or touch to paint over the image to express your emotions.</p>
+        <p>Select an emotion and use your mouse or touch to paint over the image to express your emotions.</p>
+        <!-- Moved the save button above the canvas -->
+        <button id="save-btn">Save All Paintings</button>
         <div id="controls">
+            <label for="emotion-select">Emotion:</label>
+            <select id="emotion-select"></select>
             <button id="eraser-btn">Eraser</button>
             <label for="pen-size">Pen Size:</label>
-            <input type="number" id="pen-size" min="1" max="50" value="5">
+            <input type="number" id="pen-size" min="1" max="50" value="20">
+            <label for="pen-color">Pen Color:</label>
+            <input type="color" id="pen-color" value="#808080">
         </div>
         <div id="canvas-container">
             <canvas id="background-canvas"></canvas>
             <canvas id="drawing-canvas"></canvas>
         </div>
-        <button id="save-btn">Save Painting</button>
     </div>
 
     <script>
@@ -107,6 +118,27 @@
         let userName = '';
         let userGender = '';
         let userAge = '';
+
+        // Emotion list
+        const emotions = [
+            'Neutral',
+            'Fear',
+            'Anger',
+            'Disgust',
+            'Sadness',
+            'Happiness',
+            'Surprise',
+            'Anxiety',
+            'Love',
+            'Depression',
+            'Contempt',
+            'Pride',
+            'Shame',
+            'Jealousy'
+        ];
+
+        // Object to store drawings for each emotion
+        const emotionDrawings = {};
 
         // Welcome page elements
         const welcomePage = document.getElementById('welcome-page');
@@ -144,8 +176,18 @@
         const saveBtn = document.getElementById('save-btn');
         const eraserBtn = document.getElementById('eraser-btn');
         const penSizeInput = document.getElementById('pen-size');
+        const penColorInput = document.getElementById('pen-color');
+        const emotionSelect = document.getElementById('emotion-select');
 
         function initializeCanvas() {
+            // Populate emotion select
+            emotions.forEach(emotion => {
+                const option = document.createElement('option');
+                option.value = emotion;
+                option.textContent = emotion;
+                emotionSelect.appendChild(option);
+            });
+
             const backgroundImage = new Image();
             backgroundImage.crossOrigin = 'anonymous';
             backgroundImage.src = 'Resource/background.png'; // Ensure this image exists in the Resource folder
@@ -166,9 +208,20 @@
 
                 // Prepare drawing canvas
                 const drawCtx = drawingCanvas.getContext('2d');
-                drawCtx.lineWidth = parseInt(penSizeInput.value) || 5;
+                drawCtx.lineWidth = parseInt(penSizeInput.value) || 20;
                 drawCtx.lineCap = 'round';
-                drawCtx.strokeStyle = 'gray'; // Changed pen color to gray
+                drawCtx.strokeStyle = penColorInput.value; // Set initial color
+
+                let currentEmotion = emotionSelect.value || emotions[0];
+                emotionSelect.value = currentEmotion;
+
+                // Initialize drawings object
+                emotions.forEach(emotion => {
+                    emotionDrawings[emotion] = null; // Initialize with null
+                });
+
+                // Load drawing for current emotion
+                loadEmotionDrawing(currentEmotion);
 
                 // Drawing state
                 let drawing = false;
@@ -248,6 +301,13 @@
                     }
                 });
 
+                // Pen color adjustment
+                penColorInput.addEventListener('change', () => {
+                    if (!erasing) {
+                        drawCtx.strokeStyle = penColorInput.value;
+                    }
+                });
+
                 // Eraser functionality
                 eraserBtn.addEventListener('click', () => {
                     erasing = !erasing;
@@ -258,37 +318,107 @@
                     } else {
                         eraserBtn.textContent = 'Eraser';
                         drawCtx.globalCompositeOperation = 'source-over'; // Draw mode
-                        drawCtx.strokeStyle = 'gray';
+                        drawCtx.strokeStyle = penColorInput.value; // Restore pen color
                     }
+                });
+
+                // Emotion selection change
+                emotionSelect.addEventListener('change', () => {
+                    // Save current drawing
+                    saveCurrentEmotionDrawing(currentEmotion);
+                    // Update current emotion
+                    currentEmotion = emotionSelect.value;
+                    // Load new emotion drawing
+                    loadEmotionDrawing(currentEmotion);
+                });
+
+                // Functions to save and load drawings
+                function saveCurrentEmotionDrawing(emotion) {
+                    // Save the current drawing to the emotionDrawings object
+                    emotionDrawings[emotion] = drawingCanvas.toDataURL();
+                }
+
+                function loadEmotionDrawing(emotion) {
+                    // Clear the drawing canvas
+                    drawCtx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
+                    // If there's a saved drawing for this emotion, load it
+                    if (emotionDrawings[emotion]) {
+                        const img = new Image();
+                        img.src = emotionDrawings[emotion];
+                        img.onload = () => {
+                            drawCtx.drawImage(img, 0, 0);
+                        };
+                    }
+                }
+
+                // Before unloading or closing, save current drawing
+                window.addEventListener('beforeunload', () => {
+                    saveCurrentEmotionDrawing(currentEmotion);
                 });
             };
         }
 
-        // Save the painting locally
+        // Save all paintings
         saveBtn.addEventListener('click', () => {
-            // Merge background and drawing canvases
-            const mergedCanvas = document.createElement('canvas');
-            mergedCanvas.width = backgroundCanvas.width;
-            mergedCanvas.height = backgroundCanvas.height;
-            const mergedCtx = mergedCanvas.getContext('2d');
+            // Save the current drawing before exporting
+            const currentEmotion = emotionSelect.value;
+            saveCurrentEmotionDrawing(currentEmotion);
 
-            mergedCtx.drawImage(backgroundCanvas, 0, 0);
-            mergedCtx.drawImage(drawingCanvas, 0, 0);
+            // Prepare data object
+            const data = {
+                name: userName,
+                gender: userGender,
+                age: userAge,
+                drawings: {}
+            };
 
-            // Convert canvas to data URL
-            const dataURL = mergedCanvas.toDataURL('image/png');
+            // Include all emotion drawings
+            for (const emotion of emotions) {
+                if (emotionDrawings[emotion]) {
+                    data.drawings[emotion] = emotionDrawings[emotion];
+                } else {
+                    data.drawings[emotion] = null;
+                }
+            }
+
+            // Convert data to JSON string
+            const dataStr = JSON.stringify(data);
 
             // Trigger download
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
-            link.href = dataURL;
-            link.download = `${userName}_${userGender}_${userAge}.png`;
+            link.href = url;
+            link.download = `${userName}_${userGender}_${userAge}_drawings.json`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+            URL.revokeObjectURL(url);
 
-            alert('Your painting has been downloaded.');
+            alert('Your paintings have been downloaded.');
         });
+
+        // Functions outside initializeCanvas to access currentEmotion
+        function saveCurrentEmotionDrawing(emotion) {
+            const drawCtx = drawingCanvas.getContext('2d');
+            emotionDrawings[emotion] = drawingCanvas.toDataURL();
+        }
+
+        function loadEmotionDrawing(emotion) {
+            const drawCtx = drawingCanvas.getContext('2d');
+            // Clear the drawing canvas
+            drawCtx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
+            // If there's a saved drawing for this emotion, load it
+            if (emotionDrawings[emotion]) {
+                const img = new Image();
+                img.src = emotionDrawings[emotion];
+                img.onload = () => {
+                    drawCtx.drawImage(img, 0, 0);
+                };
+            }
+        }
     </script>
 
 </body>
 </html>
+
