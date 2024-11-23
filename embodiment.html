@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Emotion Embodiment Experiment</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+        #welcome-page, #main-page {
+            display: none;
+            padding: 20px;
+        }
+        #welcome-page.active, #main-page.active {
+            display: block;
+        }
+        .consent-item {
+            margin-bottom: 10px;
+        }
+        #proceed-btn:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        #canvas-container {
+            position: relative;
+            display: inline-block;
+        }
+        #drawing-canvas {
+            position: absolute;
+            left: 0;
+            top: 0;
+        }
+        #controls {
+            margin-top: 20px;
+        }
+        #controls button, #controls input {
+            margin-right: 10px;
+        }
+        #pen-size {
+            width: 50px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="welcome-page" class="active">
+        <h1>Welcome to the Emotion Embodiment Experiment</h1>
+        <p>
+            In this experiment, you will be asked to express different emotions by painting over a body image. Your participation will help us understand how emotions are embodied in different body parts.
+        </p>
+        <h2>Please fill out your information:</h2>
+        <form id="user-form">
+            <label>
+                Name:
+                <input type="text" id="user-name" required>
+            </label><br><br>
+            <label>
+                Gender:
+                <input type="text" id="user-gender" required>
+            </label><br><br>
+            <label>
+                Age:
+                <input type="number" id="user-age" required>
+            </label><br><br>
+            <h2>Informed Consent</h2>
+            <div class="consent-item">
+                <label>
+                    <input type="checkbox" class="consent-checkbox" required>
+                    I understand the purpose of this experiment.
+                </label>
+            </div>
+            <div class="consent-item">
+                <label>
+                    <input type="checkbox" class="consent-checkbox" required>
+                    I agree that my data can be used for research purposes.
+                </label>
+            </div>
+            <div class="consent-item">
+                <label>
+                    <input type="checkbox" class="consent-checkbox" required>
+                    I acknowledge that I can withdraw at any time.
+                </label>
+            </div>
+            <button type="button" id="proceed-btn" disabled>Proceed to Experiment</button>
+        </form>
+    </div>
+
+    <div id="main-page">
+        <h1>Emotion Painting</h1>
+        <p>Use your mouse to paint over the image to express your emotions.</p>
+        <div id="controls">
+            <button id="eraser-btn">Eraser</button>
+            <label for="pen-size">Pen Size:</label>
+            <input type="number" id="pen-size" min="1" max="50" value="5">
+        </div>
+        <div id="canvas-container">
+            <canvas id="background-canvas"></canvas>
+            <canvas id="drawing-canvas"></canvas>
+        </div>
+        <button id="save-btn">Save Painting</button>
+    </div>
+
+    <script>
+        // Variables to store user information
+        let userName = '';
+        let userGender = '';
+        let userAge = '';
+
+        // Welcome page elements
+        const welcomePage = document.getElementById('welcome-page');
+        const mainPage = document.getElementById('main-page');
+        const proceedBtn = document.getElementById('proceed-btn');
+        const consentCheckboxes = document.querySelectorAll('.consent-checkbox');
+
+        // Enable proceed button only when all consent checkboxes are checked
+        consentCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', () => {
+                const allChecked = Array.from(consentCheckboxes).every(cb => cb.checked);
+                proceedBtn.disabled = !allChecked;
+            });
+        });
+
+        // Proceed to main page
+        proceedBtn.addEventListener('click', () => {
+            userName = document.getElementById('user-name').value.trim();
+            userGender = document.getElementById('user-gender').value.trim();
+            userAge = document.getElementById('user-age').value.trim();
+
+            if (userName && userGender && userAge) {
+                welcomePage.classList.remove('active');
+                mainPage.classList.add('active');
+                initializeCanvas();
+            } else {
+                alert('Please fill out all your information.');
+            }
+        });
+
+        // Canvas setup
+        const backgroundCanvas = document.getElementById('background-canvas');
+        const drawingCanvas = document.getElementById('drawing-canvas');
+        const canvasContainer = document.getElementById('canvas-container');
+        const saveBtn = document.getElementById('save-btn');
+        const eraserBtn = document.getElementById('eraser-btn');
+        const penSizeInput = document.getElementById('pen-size');
+
+        function initializeCanvas() {
+            const backgroundImage = new Image();
+            backgroundImage.src = 'Resource/background.png'; // Ensure this image exists in the Resource folder
+            backgroundImage.onload = () => {
+                // Set canvas sizes
+                backgroundCanvas.width = backgroundImage.width;
+                backgroundCanvas.height = backgroundImage.height;
+                drawingCanvas.width = backgroundImage.width;
+                drawingCanvas.height = backgroundImage.height;
+
+                // Draw background image
+                const bgCtx = backgroundCanvas.getContext('2d');
+                bgCtx.drawImage(backgroundImage, 0, 0);
+
+                // Prepare drawing canvas
+                const drawCtx = drawingCanvas.getContext('2d');
+                drawCtx.lineWidth = parseInt(penSizeInput.value) || 5;
+                drawCtx.lineCap = 'round';
+                drawCtx.strokeStyle = 'gray'; // Changed pen color to gray
+
+                // Drawing state
+                let drawing = false;
+                let erasing = false; // State to track eraser mode
+
+                drawingCanvas.addEventListener('mousedown', (e) => {
+                    drawing = true;
+                    drawCtx.beginPath();
+                    drawCtx.moveTo(e.offsetX, e.offsetY);
+                });
+
+                drawingCanvas.addEventListener('mousemove', (e) => {
+                    if (drawing) {
+                        drawCtx.lineTo(e.offsetX, e.offsetY);
+                        drawCtx.stroke();
+                    }
+                });
+
+                drawingCanvas.addEventListener('mouseup', () => {
+                    drawing = false;
+                });
+
+                drawingCanvas.addEventListener('mouseout', () => {
+                    drawing = false;
+                });
+
+                // Pen size adjustment
+                penSizeInput.addEventListener('change', () => {
+                    const newSize = parseInt(penSizeInput.value);
+                    if (newSize > 0) {
+                        drawCtx.lineWidth = newSize;
+                    }
+                });
+
+                // Eraser functionality
+                eraserBtn.addEventListener('click', () => {
+                    erasing = !erasing;
+                    if (erasing) {
+                        eraserBtn.textContent = 'Pen';
+                        drawCtx.globalCompositeOperation = 'destination-out'; // Eraser mode
+                        drawCtx.strokeStyle = 'rgba(0,0,0,1)'; // Color doesn't matter in erase mode
+                    } else {
+                        eraserBtn.textContent = 'Eraser';
+                        drawCtx.globalCompositeOperation = 'source-over'; // Pen mode
+                        drawCtx.strokeStyle = 'gray';
+                    }
+                });
+            };
+        }
+
+saveBtn.addEventListener('click', () => {
+    // Merge background and drawing canvases
+    const mergedCanvas = document.createElement('canvas');
+    mergedCanvas.width = backgroundCanvas.width;
+    mergedCanvas.height = backgroundCanvas.height;
+    const mergedCtx = mergedCanvas.getContext('2d');
+
+    mergedCtx.drawImage(backgroundCanvas, 0, 0);
+    mergedCtx.drawImage(drawingCanvas, 0, 0);
+
+    // Convert canvas to data URL
+    const dataURL = mergedCanvas.toDataURL('image/png');
+
+    // Trigger download
+    const link = document.createElement('a');
+    link.href = dataURL;
+    link.download = `${userName}_${userGender}_${userAge}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    alert('Your painting has been downloaded.');
+});
+
+    </script>
+
+</body>
+</html>
+
